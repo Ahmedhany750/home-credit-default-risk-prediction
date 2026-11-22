@@ -42,37 +42,28 @@ SEED = 42
 np.random.seed(SEED)
 print('lightgbm version:', lgb.__version__)
 
-"""### 1.2 Connect with Google Drive"""
+"""### 1.2 Configure the project directory
 
-# If you work with Google Colaboratory, please run this as well.
-try:
-    from google.colab import drive
-    drive.mount('/content/drive')
-except ImportError:
-    print('Not running in Colab - skipping Drive mount')
-
-"""**IMPORTANT:** replace the path below with the path of your `competition` folder
-(Files panel → ⋮ next to `competition` → *Copy path*), exactly like in `tutorial.ipynb`.
-Save this notebook **inside** that `competition` folder.
+Set COMPETITION_DIR to the folder containing the input/ directory. By default,
+the current working directory is used.
 """
 
-import os
-from pathlib import Path
+COMPETITION_DIR = os.environ.get("COMPETITION_DIR", ".")
+current_dir = Path(COMPETITION_DIR).expanduser().resolve()
+os.chdir(current_dir)
 
-# Specify the directory where this notebook is located
-COMPETITION_DIR = "/content/drive/MyDrive/04. Competition (due Nov 20)/Competition"
-if os.path.isdir(COMPETITION_DIR):
-    os.chdir(COMPETITION_DIR)
-
-current_dir = Path(os.getcwd())
 train_file = current_dir / "input" / "train.csv"
 test_file = current_dir / "input" / "test.csv"
 sample_sub_file = current_dir / "input" / "sample_submission.csv"
 
 if train_file.exists() and test_file.exists() and sample_sub_file.exists():
-    print("All files exist and path is correctly set.")
+    print("All required input files were found.")
 else:
-    print("Some files are missing or path is not correctly set.")
+    missing = [str(p) for p in (train_file, test_file, sample_sub_file) if not p.exists()]
+    raise FileNotFoundError(
+        "Required competition CSV files were not found: " + ", ".join(missing)
+        + ". See input/README.md for setup instructions."
+    )
 
 """## 2. Loading the data"""
 
@@ -310,7 +301,7 @@ else:
     print('Not kept (no clear gain)')
 
 # ===== 4e. Optuna hyperparameter tuning for LightGBM (time-limited) =====
-!pip -q install optuna
+# Install dependencies with: pip install -r requirements.txt
 import optuna
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -381,7 +372,7 @@ for seed in SEEDS:
 print(f'\n>>> LightGBM Overall CV (OOF) AUC: {roc_auc_score(y, oof):.5f}')
 np.save(current_dir / 'lgb_oof.npy', oof)
 np.save(current_dir / 'lgb_test.npy', test_pred)
-print('LightGBM results saved to Drive')
+print('LightGBM predictions saved in:', current_dir)
 
 # Most useful features
 imp = importances.mean(axis=1).sort_values(ascending=False)
@@ -389,7 +380,7 @@ imp.head(25)[::-1].plot.barh(figsize=(7, 8), title='Top 25 features (gain)')
 plt.tight_layout(); plt.show()
 
 # ===== 5b. CatBoost + blend with LightGBM =====
-!pip -q install catboost
+# CatBoost is installed through requirements.txt
 from catboost import CatBoostClassifier, Pool
 from scipy.stats import rankdata
 
@@ -423,7 +414,7 @@ for seed in CAT_SEEDS:
 
 np.save(current_dir / 'cat_oof.npy', cat_oof)
 np.save(current_dir / 'cat_test.npy', cat_test)
-print('CatBoost results saved to Drive')
+print('CatBoost predictions saved in:', current_dir)
 
 # Blend on rank scale (AUC only depends on order); weight chosen on OOF predictions
 r = lambda a: rankdata(a) / len(a)
@@ -465,31 +456,21 @@ output_file = output_dir / "submission.csv"
 sample_sub.to_csv(output_file, index=False)
 print('Saved:', output_file)
 
-"""### 6.3 Saving this notebook as a ZIP file [REQUIREMENT IF AIMING FOR HONORS/OUTSTANDING STUDENTS]
-Save the notebook first (Ctrl+S / Cmd+S). `notebook_filename` must match this notebook's name.
+"""### 6.3 Optional: archive the notebook
+
+If the original .ipynb notebook is also present in the project folder, this
+cell creates a ZIP archive. This step is optional for the Python script.
 """
 
-import os, zipfile
-from pathlib import Path
-from google.colab import drive
-drive.mount('/content/drive')
-
-current_dir = Path("/content/drive/MyDrive/04. Competition (due Nov 20)/Competition")
-notebook_filename = "competition_lgbm.ipynb"   # must match the notebook's name in that folder
-zip_filename = "competition_lgbm.zip"
-
-notebook_path = current_dir / notebook_filename
-zip_output_path = current_dir / zip_filename
+notebook_path = current_dir / "competition_lgbm.ipynb"
+zip_output_path = current_dir / "competition_lgbm.zip"
 
 if notebook_path.exists():
-    with zipfile.ZipFile(zip_output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        zipf.write(notebook_path, arcname=notebook_filename)
-    print(f"Successfully created: {zip_output_path}")
-    from google.colab import files
-    files.download(str(zip_output_path))        # downloads the zip to your PC
+    with zipfile.ZipFile(zip_output_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(notebook_path, arcname=notebook_path.name)
+    print(f"Created notebook archive: {zip_output_path}")
 else:
-    print("Notebook not found. Files in the folder are:")
-    print([p.name for p in current_dir.iterdir()])
+    print("Notebook archive skipped: competition_lgbm.ipynb was not found.")
 
 """## References & credits (README rule: cite original sources)
 * Base structure, data loading, submission and ZIP cells: GCI `tutorial.ipynb` (Matsuo-Iwasawa Lab, University of Tokyo).
