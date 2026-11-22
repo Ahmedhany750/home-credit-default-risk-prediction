@@ -71,7 +71,7 @@ home-credit-default-risk-prediction/
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/home-credit-default-risk-prediction.git
+git clone https://github.com/Ahmedhany750/home-credit-default-risk-prediction.git
 cd home-credit-default-risk-prediction
 ```
 
@@ -87,6 +87,10 @@ Required files:
 - `train.csv`
 - `test.csv`
 - `sample_submission.csv`
+
+## Run the pipeline
+
+From the repository root, run `python competition_lgbm.py`. By default, the script expects `input/` in the current project folder. Set `COMPETITION_DIR` to another folder containing `input/` if needed.
 
 ## Reproducibility
 
